@@ -58,9 +58,7 @@ Model performance was assessed using accuracy, sensitivity, specificity, precisi
 | ROC-AUC | 0.8688 | **0.8828** |
 
 
-<img width="700" height="432" alt="image" src="https://github.com/user-attachments/assets/7343f1af-2699-4f10-9d5c-1617e9be7c91" />
-
-<img width="700" height="432" alt="image" src="https://github.com/user-attachments/assets/364b47e5-0ec1-4c3c-8ae6-88b2b3530d41" />
+<img width="700" height="432" alt="image" src="https://github.com/user-attachments/assets/7343f1af-2699-4f10-9d5c-1617e9be7c91" /> <img width="700" height="432" alt="image" src="https://github.com/user-attachments/assets/364b47e5-0ec1-4c3c-8ae6-88b2b3530d41" />
 
 
 Random Forest outperformed Logistic Regression across all six held-out evaluation metrics, achieving an improvement of 4.32 percentage points in classification accuracy.
