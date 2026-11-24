@@ -57,6 +57,12 @@ Model performance was assessed using accuracy, sensitivity, specificity, precisi
 | F1-score | 80.19% | **84.51%** |
 | ROC-AUC | 0.8688 | **0.8828** |
 
+
+<img width="700" height="432" alt="image" src="https://github.com/user-attachments/assets/7343f1af-2699-4f10-9d5c-1617e9be7c91" />
+
+<img width="700" height="432" alt="image" src="https://github.com/user-attachments/assets/364b47e5-0ec1-4c3c-8ae6-88b2b3530d41" />
+
+
 Random Forest outperformed Logistic Regression across all six held-out evaluation metrics, achieving an improvement of 4.32 percentage points in classification accuracy.
 
 ### Five-fold cross-validation
@@ -69,6 +75,9 @@ Random Forest outperformed Logistic Regression across all six held-out evaluatio
 | Mean precision | **82.62%** | 82.28% |
 | Mean F1-score | 83.91% | **83.84%** |
 | Mean ROC-AUC | **0.8898** | 0.8863 |
+
+<img width="700" height="432" alt="image" src="https://github.com/user-attachments/assets/4e0d902f-ec03-484d-90a2-4098ecef06a7" />
+
 
 Cross-validation demonstrated competitive performance between both models. Logistic Regression achieved slightly higher mean accuracy and AUC, while Random Forest demonstrated greater consistency in classification accuracy across the five validation folds.
 
@@ -105,7 +114,7 @@ The dashboard integrates:
 - Interactive What-If analysis
 - Clinical variable exploration
 
-**Live dashboard:** [Insert deployed Shiny application link]
+**Live dashboard:** [https://s6w5mk-habeebat-sanusi.shinyapps.io/heart-disease-dashboard/]
 
 ## Tools and technologies
 
