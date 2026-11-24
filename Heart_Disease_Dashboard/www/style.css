@@ -1,0 +1,104 @@
+
+/* General dashboard appearance */
+body {
+  background-color: #f3f7fb;
+  font-family: "Arial", sans-serif;
+  color: #203247;
+}
+
+/* Dashboard title */
+h2 {
+  background: #102b43;
+  color: white;
+  padding: 24px;
+  border-radius: 12px;
+  font-weight: 700;
+  margin-bottom: 25px;
+}
+
+/* Input panel */
+.well {
+  background: white;
+  border: 1px solid #e1e8ef;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(20, 45, 70, 0.06);
+}
+
+/* Section headings */
+h3, h4 {
+  color: #102b43;
+  font-weight: 700;
+}
+
+/* Input labels */
+.control-label {
+  font-weight: 600;
+  color: #334155;
+}
+
+/* Text fields and dropdowns */
+.form-control,
+.selectize-input {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  min-height: 40px;
+  background: #ffffff;
+}
+
+/* Input focus */
+.form-control:focus,
+.selectize-input.focus {
+  border-color: #0d9488;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+}
+
+/* Prediction button */
+#predict {
+  background: #0d9488;
+  color: white;
+  border: none;
+  border-radius: 9px;
+  padding: 13px 20px;
+  font-weight: 700;
+  width: 100%;
+  margin-top: 18px;
+  transition: background 0.2s ease;
+}
+
+#predict:hover {
+  background: #0f766e;
+}
+
+/* Prediction result panel */
+.shiny-text-output {
+  background: #e9f7f4;
+  border-left: 4px solid #0d9488;
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 17px;
+  font-weight: 600;
+  margin: 15px 0;
+}
+
+/* Chart container */
+#probability_plot {
+  background: white;
+  border: 1px solid #e1e8ef;
+  border-radius: 14px;
+  padding: 15px;
+  margin-top: 20px;
+  box-shadow: 0 4px 16px rgba(20, 45, 70, 0.06);
+}
+
+/* Smaller screens */
+@media (max-width: 768px) {
+  h2 {
+    padding: 18px;
+    font-size: 23px;
+  }
+
+  .well {
+    padding: 16px;
+  }
+}

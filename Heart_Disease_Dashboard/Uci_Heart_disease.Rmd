@@ -1,0 +1,874 @@
+---
+title: "Uci_DATA_heart diseases"
+author: "Habeebat Sanusi and Celena Daou"
+date: "2026-10-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+install.packages("recipes")
+install.packages("randomForest")
+
+install.packages("rsample")
+
+```
+
+```{r}
+install.packages("pROC")
+```
+
+```{r}
+library(recipes)
+```
+
+```{r}
+heart_clean <- read.csv("/home/habeebat/Desktop/Heart_Disease_Dashboard/heart_clean.csv")
+```
+
+```{r}
+
+```
+
+```{r}
+# SPlit Data for training and testing set
+
+library(rsample)
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Split data, keeping outcome proportions similar
+heart_split <- initial_split(
+  heart_clean,
+  prop = 0.80,
+  strata = heart_disease
+)
+
+# Create training and testing datasets
+heart_train <- training(heart_split)
+heart_test <- testing(heart_split)
+
+# Check dimensions
+dim(heart_train)
+dim(heart_test)
+
+# Check outcome distribution
+table(heart_train$heart_disease)
+table(heart_test$heart_disease)
+```
+
+```{r}
+# Handling Missing Values Using K-Nearest Neighbors (KNN) Imputation
+# KNN estimates missing values using information from similar patients.
+
+# Load required packages
+library(recipes)
+library(dplyr)
+
+# Convert categorical variables to factors
+categorical <- c(
+  "sex", "cp", "fbs", "restecg",
+  "exang", "slope", "ca", "thal",
+  "hospital"
+)
+
+for (col in categorical) {
+
+  heart_train[[col]] <- factor(heart_train[[col]])
+
+  heart_test[[col]] <- factor(
+    heart_test[[col]],
+    levels = levels(heart_train[[col]])
+  )
+}
+
+# Create preprocessing recipe using KNN imputation
+# neighbors = 5 means the five most similar patients are used
+
+heart_recipe <- recipe(
+  heart_disease ~ .,
+  data = heart_train
+) %>%
+  step_impute_knn(
+    all_predictors(),
+    neighbors = 5
+  )
+
+# Learn preprocessing information from training data only
+heart_prep <- prep(
+  heart_recipe,
+  training = heart_train
+)
+
+# Apply KNN imputation to training data
+train_ready <- bake(
+  heart_prep,
+  new_data = heart_train
+)
+
+# Apply the same preprocessing to testing data
+test_ready <- bake(
+  heart_prep,
+  new_data = heart_test
+)
+
+# Check remaining missing values in training data
+cat("Missing values in training data:\n")
+print(colSums(is.na(train_ready)))
+
+# Check remaining missing values in testing data
+cat("\nMissing values in testing data:\n")
+print(colSums(is.na(test_ready)))
+
+# Check total missing values
+cat("\nTotal missing values in training data:",
+    sum(is.na(train_ready)), "\n")
+
+cat("Total missing values in testing data:",
+    sum(is.na(test_ready)), "\n")
+
+# Display dimensions of processed datasets
+cat("\nTraining data dimensions:",
+    dim(train_ready), "\n")
+
+cat("Testing data dimensions:",
+    dim(test_ready), "\n")
+```
+
+
+```{r}
+# Logistic Regression Model Using KNN-Imputed Data
+
+# Remove hospital variable, as in the previous model
+train_final <- train_ready[, !names(train_ready) %in% "hospital"]
+test_final  <- test_ready[, !names(test_ready) %in% "hospital"]
+
+# Train Logistic Regression model
+logistic_model <- glm(
+  heart_disease ~ .,
+  data = train_final,
+  family = binomial
+)
+
+# Predict probability of heart disease
+logistic_prob <- predict(
+  logistic_model,
+  newdata = test_final,
+  type = "response"
+)
+
+# Correct predicted class labels
+logistic_pred <- factor(
+  ifelse(logistic_prob >= 0.5, "No_Disease", "Disease"),
+  levels = levels(test_final$heart_disease)
+)
+
+# Confusion matrix
+logistic_cm <- table(
+  Actual = test_final$heart_disease,
+  Predicted = logistic_pred
+)
+
+print(logistic_cm)
+
+# Calculate accuracy
+logistic_accuracy <- mean(
+  logistic_pred == test_final$heart_disease
+)
+
+cat(
+  "\nLogistic Regression Accuracy:",
+  round(logistic_accuracy * 100, 2),
+  "%\n"
+)
+```
+
+
+```{r}
+# Random Forest Classification Using KNN-Imputed Data
+
+library(randomForest)
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Train Random Forest model
+rf_model <- randomForest(
+  heart_disease ~ .,
+  data = train_final,
+  ntree = 500,
+  importance = TRUE
+)
+
+# Predict heart disease classes
+rf_pred <- predict(
+  rf_model,
+  newdata = test_final,
+  type = "response"
+)
+
+# Confusion matrix
+rf_cm <- table(
+  Actual = test_final$heart_disease,
+  Predicted = rf_pred
+)
+
+print(rf_cm)
+
+# Calculate accuracy
+rf_accuracy <- mean(
+  rf_pred == test_final$heart_disease
+)
+
+cat(
+  "\nRandom Forest Accuracy:",
+  round(rf_accuracy * 100, 2),
+  "%\n"
+)
+```
+
+```{r}
+# Calculating the evaluation Metrics
+
+# Compare Logistic Regression and Random Forest Performance
+
+calculate_metrics <- function(actual, predicted) {
+
+  actual <- as.character(actual)
+  predicted <- as.character(predicted)
+
+  TP <- sum(actual == "Disease" & predicted == "Disease")
+  TN <- sum(actual == "No_Disease" & predicted == "No_Disease")
+  FP <- sum(actual == "No_Disease" & predicted == "Disease")
+  FN <- sum(actual == "Disease" & predicted == "No_Disease")
+
+  accuracy <- (TP + TN) / (TP + TN + FP + FN)
+  sensitivity <- TP / (TP + FN)
+  specificity <- TN / (TN + FP)
+  precision <- TP / (TP + FP)
+  f1_score <- 2 * precision * sensitivity / (precision + sensitivity)
+
+  return(c(
+    Accuracy = accuracy,
+    Sensitivity = sensitivity,
+    Specificity = specificity,
+    Precision = precision,
+    F1_Score = f1_score
+  ))
+}
+
+# Logistic Regression metrics
+logistic_metrics <- calculate_metrics(
+  test_final$heart_disease,
+  logistic_pred
+)
+
+# Random Forest metrics
+rf_metrics <- calculate_metrics(
+  test_final$heart_disease,
+  rf_pred
+)
+
+# Create comparison table
+model_comparison <- data.frame(
+  Metric = names(logistic_metrics),
+  Logistic_Regression = round(logistic_metrics * 100, 2),
+  Random_Forest = round(rf_metrics * 100, 2)
+)
+
+print(model_comparison)
+```
+```{r}
+# Visual Comparison of Classification Models
+
+library(ggplot2)
+library(tidyr)
+
+# Convert comparison table to long format
+comparison_long <- model_comparison %>%
+  pivot_longer(
+    cols = c(Logistic_Regression, Random_Forest),
+    names_to = "Model",
+    values_to = "Score"
+  )
+
+# Improve model labels
+comparison_long$Model <- factor(
+  comparison_long$Model,
+  levels = c("Logistic_Regression", "Random_Forest"),
+  labels = c("Logistic Regression", "Random Forest")
+)
+
+# Create grouped bar chart
+ggplot(
+  comparison_long,
+  aes(x = Metric, y = Score, fill = Model)
+) +
+  geom_col(
+    position = position_dodge(width = 0.8),
+    width = 0.7
+  ) +
+  geom_text(
+    aes(label = paste0(Score, "%")),
+    position = position_dodge(width = 0.8),
+    vjust = -0.4,
+    size = 3.5
+  ) +
+  scale_fill_manual(
+    values = c(
+      "Logistic Regression" = "#4472C4",
+      "Random Forest" = "#ED7D31"
+    )
+  ) +
+  scale_y_continuous(
+    limits = c(0, 100),
+    expand = expansion(mult = c(0, 0))
+  ) +
+  labs(
+    title = "Logistic Regression vs Random Forest",
+    subtitle = "Heart Disease Classification Using KNN Imputation",
+    x = "Evaluation Metric",
+    y = "Performance (%)",
+    fill = "Classification Model"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 25, hjust = 1),
+    legend.position = "bottom"
+  )
+```
+
+```{r}
+# Random Forest Feature Importance
+
+library(randomForest)
+library(ggplot2)
+
+# Extract variable importance
+rf_importance <- importance(
+  rf_model,
+  type = 1
+)
+
+# Convert to data frame
+importance_df <- data.frame(
+  Variable = rownames(rf_importance),
+  Importance = rf_importance[, 1]
+)
+
+# Sort variables by importance
+importance_df <- importance_df[
+  order(importance_df$Importance, decreasing = TRUE),
+]
+
+# Display importance values
+print(importance_df)
+
+# Create feature importance visualization
+ggplot(
+  importance_df,
+  aes(
+    x = reorder(Variable, Importance),
+    y = Importance
+  )
+) +
+  geom_col(
+    fill = "#4472C4",
+    width = 0.7
+  ) +
+  coord_flip() +
+  labs(
+    title = "Random Forest Feature Importance",
+    subtitle = "Heart Disease Classification Using KNN Imputation",
+    x = "Clinical Variables",
+    y = "Mean Decrease in Accuracy"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold")
+  )
+```
+
+```{r}
+# Logistic Regression Variable Importance
+# Based on the increase in model deviance when each predictor is removed
+
+library(ggplot2)
+
+# Calculate importance for each predictor
+logistic_importance <- drop1(
+  logistic_model,
+  test = "Chisq"
+)
+
+# Convert results to a data frame
+logistic_importance_df <- data.frame(
+  Variable = rownames(logistic_importance),
+  Importance = logistic_importance$LRT
+)
+
+# Remove the overall model row
+logistic_importance_df <- logistic_importance_df[
+  logistic_importance_df$Variable != "<none>",
+]
+
+# Remove any missing values
+logistic_importance_df <- na.omit(logistic_importance_df)
+
+# Sort predictors by importance
+logistic_importance_df <- logistic_importance_df[
+  order(logistic_importance_df$Importance, decreasing = TRUE),
+]
+
+# Display importance values
+print(logistic_importance_df)
+
+# Create Logistic Regression importance chart
+ggplot(
+  logistic_importance_df,
+  aes(
+    x = reorder(Variable, Importance),
+    y = Importance
+  )
+) +
+  geom_col(
+    fill = "#4472C4",
+    width = 0.7
+  ) +
+  coord_flip() +
+  labs(
+    title = "Logistic Regression Variable Importance",
+    subtitle = "Heart Disease Classification Using KNN Imputation",
+    x = "Clinical Variables",
+    y = "Likelihood Ratio Chi-Square"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold")
+  )
+```
+
+
+```{r}
+# ROC Curve and AUC Comparison
+
+library(pROC)
+library(ggplot2)
+
+# Logistic Regression predicted probabilities
+logistic_prob <- predict(
+  logistic_model,
+  newdata = test_final,
+  type = "response"
+)
+
+# Ensure probabilities represent heart disease
+if (levels(logistic_model$model$heart_disease)[2] == "No_Disease") {
+  logistic_prob <- 1 - logistic_prob
+}
+
+# Random Forest predicted probabilities
+rf_prob <- predict(
+  rf_model,
+  newdata = test_final,
+  type = "prob"
+)[, "Disease"]
+
+# Calculate Logistic Regression ROC
+logistic_roc <- roc(
+  response = test_final$heart_disease,
+  predictor = logistic_prob,
+  levels = c("No_Disease", "Disease"),
+  direction = "<"
+)
+
+# Calculate Random Forest ROC
+rf_roc <- roc(
+  response = test_final$heart_disease,
+  predictor = rf_prob,
+  levels = c("No_Disease", "Disease"),
+  direction = "<"
+)
+
+# Calculate AUC values
+logistic_auc <- auc(logistic_roc)
+rf_auc <- auc(rf_roc)
+
+# Create AUC comparison table
+auc_comparison <- data.frame(
+  Model = c("Logistic Regression", "Random Forest"),
+  AUC = round(
+    c(as.numeric(logistic_auc), as.numeric(rf_auc)),
+    4
+  )
+)
+
+print(auc_comparison)
+```
+
+```{r}
+# ROC Curve Visualization
+
+ggroc(
+  list(
+    "Logistic Regression" = logistic_roc,
+    "Random Forest" = rf_roc
+  ),
+  legacy.axes = TRUE,
+  linewidth = 1.2
+) +
+  geom_abline(
+    intercept = 0,
+    slope = 1,
+    linetype = "dashed",
+    color = "gray50"
+  ) +
+  scale_color_manual(
+    values = c(
+      "Logistic Regression" = "#4472C4",
+      "Random Forest" = "#ED7D31"
+    ),
+    labels = c(
+      paste0(
+        "Logistic Regression (AUC = ",
+        round(logistic_auc, 3), ")"
+      ),
+      paste0(
+        "Random Forest (AUC = ",
+        round(rf_auc, 3), ")"
+      )
+    )
+  ) +
+  labs(
+    title = "ROC Curve Comparison",
+    subtitle = "Heart Disease Classification Using KNN Imputation",
+    x = "False Positive Rate (1 - Specificity)",
+    y = "True Positive Rate (Sensitivity)",
+    color = "Classification Model"
+  ) +
+  coord_equal() +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "bottom",
+    legend.title = element_text(face = "bold")
+  )
+```
+
+```{r}
+# Five- fold Validation
+set.seed(123)
+
+# Prepare the original training dataset
+cv_data <- heart_train
+
+# Convert outcome to factor
+cv_data$heart_disease <- factor(
+  cv_data$heart_disease,
+  levels = c("No_Disease", "Disease")
+)
+
+# Create stratified 5-fold cross-validation
+cv_folds <- vfold_cv(
+  cv_data,
+  v = 5,
+  strata = heart_disease
+)
+
+cv_folds
+```
+```{r}
+
+#Train and evaluate both models across the five folds
+## Function to calculate performance metrics
+
+cv_metrics <- function(actual, probability) {
+
+  predicted <- ifelse(
+    probability >= 0.5,
+    "Disease",
+    "No_Disease"
+  )
+
+  TP <- sum(actual == "Disease" & predicted == "Disease")
+  TN <- sum(actual == "No_Disease" & predicted == "No_Disease")
+  FP <- sum(actual == "No_Disease" & predicted == "Disease")
+  FN <- sum(actual == "Disease" & predicted == "No_Disease")
+
+  accuracy <- (TP + TN) / (TP + TN + FP + FN)
+  sensitivity <- TP / (TP + FN)
+  specificity <- TN / (TN + FP)
+  precision <- TP / (TP + FP)
+
+  f1 <- 2 * TP / (2 * TP + FP + FN)
+
+  auc_value <- as.numeric(
+    pROC::auc(
+      pROC::roc(
+        actual,
+        probability,
+        levels = c("No_Disease", "Disease"),
+        direction = "<",
+        quiet = TRUE
+      )
+    )
+  )
+
+  data.frame(
+    Accuracy = accuracy,
+    Sensitivity = sensitivity,
+    Specificity = specificity,
+    Precision = precision,
+    F1_Score = f1,
+    AUC = auc_value
+  )
+}
+```
+
+
+```{r}
+
+#Perform the cross-validation
+set.seed(123)
+
+cv_results <- data.frame()
+
+for (i in seq_len(nrow(cv_folds))) {
+
+  # Extract training and validation subsets
+  fold_train <- analysis(cv_folds$splits[[i]])
+  fold_valid <- assessment(cv_folds$splits[[i]])
+
+  # Create KNN imputation recipe
+  fold_recipe <- recipe(
+    heart_disease ~ .,
+    data = fold_train
+  ) %>%
+    step_impute_knn(
+      all_predictors(),
+      neighbors = 5
+    )
+
+  # Fit imputation using only fold training data
+  fold_prep <- prep(
+    fold_recipe,
+    training = fold_train
+  )
+
+  # Apply imputation
+  fold_train_ready <- bake(
+    fold_prep,
+    new_data = fold_train
+  )
+
+  fold_valid_ready <- bake(
+    fold_prep,
+    new_data = fold_valid
+  )
+
+  # Remove hospital before model training
+  fold_train_final <- fold_train_ready %>%
+    select(-hospital)
+
+  fold_valid_final <- fold_valid_ready %>%
+    select(-hospital)
+
+  # Train Logistic Regression
+  fold_logistic <- glm(
+    heart_disease ~ .,
+    data = fold_train_final,
+    family = binomial
+  )
+
+  # Train Random Forest
+  fold_rf <- randomForest(
+    heart_disease ~ .,
+    data = fold_train_final,
+    ntree = 500,
+    importance = TRUE
+  )
+
+  # Logistic Regression probabilities
+  fold_logistic_prob <- predict(
+    fold_logistic,
+    newdata = fold_valid_final,
+    type = "response"
+  )
+
+  # Random Forest probabilities
+  fold_rf_prob <- predict(
+    fold_rf,
+    newdata = fold_valid_final,
+    type = "prob"
+  )[, "Disease"]
+
+  # Evaluate Logistic Regression
+  lr_results <- cv_metrics(
+    fold_valid_final$heart_disease,
+    fold_logistic_prob
+  )
+
+  lr_results$Model <- "Logistic Regression"
+  lr_results$Fold <- i
+
+  # Evaluate Random Forest
+  rf_results <- cv_metrics(
+    fold_valid_final$heart_disease,
+    fold_rf_prob
+  )
+
+  rf_results$Model <- "Random Forest"
+  rf_results$Fold <- i
+
+  # Store results
+  cv_results <- bind_rows(
+    cv_results,
+    lr_results,
+    rf_results
+  )
+
+  cat("Fold", i, "completed\n")
+}
+
+print(cv_results)
+```
+
+
+```{r}
+#AUC Confidence Intervals and Statistical Comparison
+# Calculate 95% AUC confidence intervals
+
+logistic_ci <- pROC::ci.auc(
+  logistic_roc,
+  conf.level = 0.95,
+  method = "delong"
+)
+
+rf_ci <- pROC::ci.auc(
+  rf_roc,
+  conf.level = 0.95,
+  method = "delong"
+)
+
+# Create confidence interval comparison table
+
+auc_ci_table <- data.frame(
+  Model = c("Logistic Regression", "Random Forest"),
+  AUC = c(
+    as.numeric(logistic_auc),
+    as.numeric(rf_auc)
+  ),
+  Lower_95_CI = c(logistic_ci[1], rf_ci[1]),
+  Upper_95_CI = c(logistic_ci[3], rf_ci[3])
+)
+
+knitr::kable(
+  auc_ci_table,
+  digits = 4,
+  caption = "ROC-AUC estimates with 95% confidence intervals"
+)
+```
+
+
+```{r}
+#Visualize the confidence intervals
+ggplot(
+  auc_ci_table,
+  aes(x = Model, y = AUC, color = Model)
+) +
+  geom_errorbar(
+    aes(
+      ymin = Lower_95_CI,
+      ymax = Upper_95_CI
+    ),
+    width = 0.12,
+    linewidth = 1
+  ) +
+  geom_point(size = 4) +
+  geom_text(
+    aes(label = round(AUC, 3)),
+    nudge_x = 0.15,
+    show.legend = FALSE
+  ) +
+  scale_color_manual(
+    values = c(
+      "Logistic Regression" = "#4472C4",
+      "Random Forest" = "#ED7D31"
+    )
+  ) +
+  coord_flip() +
+  labs(
+    title = "AUC Comparison with 95% Confidence Intervals",
+    subtitle = "Held-out test dataset (n = 185)",
+    x = NULL,
+    y = "Area Under the ROC Curve"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "none"
+  )
+```
+```{r}
+
+#Perform DeLong's test We want to determine whether there is sufficient statistical evidence of a difference.
+
+#- Null hypothesis (H₀): There is no difference between the AUC values of the two models.
+#- Alternative hypothesis (H₁): There is a difference between the AUC values of the two models.
+# Paired DeLong's test
+
+delong_test <- pROC::roc.test(
+  logistic_roc,
+  rf_roc,
+  method = "delong",
+  paired = TRUE,
+  alternative = "two.sided",
+  conf.level = 0.95
+)
+
+print(delong_test)
+```
+
+
+```{r}
+# Set dashboard folder location
+dashboard_path <- "/home/habeebat/Desktop/Heart_Disease_Dashboard"
+
+# Save Logistic Regression model
+saveRDS(
+  logistic_model,
+  file.path(dashboard_path, "logistic_model.rds")
+)
+
+# Save Random Forest model
+saveRDS(
+  rf_model,
+  file.path(dashboard_path, "rf_model.rds")
+)
+
+# Save KNN preprocessing recipe
+saveRDS(
+  heart_prep,
+  file.path(dashboard_path, "heart_prep.rds")
+)
+
+# Save model comparison results
+saveRDS(
+  model_comparison,
+  file.path(dashboard_path, "model_comparison.rds")
+)
+
+# Check saved files
+list.files(dashboard_path)
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
