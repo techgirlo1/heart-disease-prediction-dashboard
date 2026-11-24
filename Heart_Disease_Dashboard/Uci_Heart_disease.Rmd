@@ -1,6 +1,6 @@
 ---
 title: "Uci_DATA_heart diseases"
-author: "Habeebat Sanusi and Celena Daou"
+author: "Habeebat Sanusi"
 date: "2026-10-27"
 output: html_document
 ---
@@ -26,9 +26,6 @@ library(recipes)
 heart_clean <- read.csv("/home/habeebat/Desktop/Heart_Disease_Dashboard/heart_clean.csv")
 ```
 
-```{r}
-
-```
 
 ```{r}
 # SPlit Data for training and testing set
@@ -735,6 +732,73 @@ for (i in seq_len(nrow(cv_folds))) {
 print(cv_results)
 ```
 
+```{r}
+#Generate the cross-validation boxplots
+# Reshape cross-validation results for visualization
+
+cv_long <- cv_results %>%
+  pivot_longer(
+    cols = c(
+      Accuracy, Sensitivity, Specificity,
+      Precision, F1_Score, AUC
+    ),
+    names_to = "Metric",
+    values_to = "Score"
+  )
+
+cv_long$Metric <- factor(
+  cv_long$Metric,
+  levels = c(
+    "Accuracy", "Sensitivity", "Specificity",
+    "Precision", "F1_Score", "AUC"
+  )
+)
+
+# Generate cross-validation boxplots
+
+ggplot(cv_long, aes(x = Model, y = Score, fill = Model)) +
+  geom_boxplot(
+    width = 0.55,
+    alpha = 0.7,
+    outlier.shape = NA
+  ) +
+  geom_jitter(
+    width = 0.08,
+    height = 0,
+    size = 2,
+    alpha = 0.8
+  ) +
+  facet_wrap(
+  ~ Metric,
+  ncol = 3,
+  labeller = as_labeller(c(
+    Accuracy = "Accuracy",
+    Sensitivity = "Sensitivity",
+    Specificity = "Specificity",
+    Precision = "Precision",
+    F1_Score = "F1-score",
+    AUC = "ROC-AUC"
+  ))
+) +
+  scale_y_continuous(
+    labels = scales::percent_format(accuracy = 1)
+  ) +
+  labs(
+    title = "Five-Fold Cross-Validation Performance",
+    subtitle = "Logistic Regression vs. Random Forest",
+    x = NULL,
+    y = "Performance Score",
+    fill = "Model"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    strip.text = element_text(face = "bold"),
+    legend.position = "bottom"
+  )
+```
 
 ```{r}
 #AUC Confidence Intervals and Statistical Comparison
@@ -864,11 +928,5 @@ saveRDS(
 list.files(dashboard_path)
 ```
 
-```{r}
 
-```
-
-```{r}
-
-```
 
